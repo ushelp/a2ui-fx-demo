@@ -53,6 +53,23 @@ class ChatSse:
         try:
             async for event in events:
                 logger.info(event)
+
+                # 工具调用 / 工具结果：与文本帧独立，单独透传给前端
+                for fc in event.get_function_calls():
+                    yield cls._sse({
+                        "type": "tool_call",
+                        "id": fc.id,
+                        "name": fc.name,
+                        "args": fc.args or {},
+                    })
+                for fr in event.get_function_responses():
+                    yield cls._sse({
+                        "type": "tool_result",
+                        "id": fr.id,
+                        "name": fr.name,
+                        "resp": fr.response or {},
+                    })
+
                 if not event.content or not event.content.parts:
                     continue
                 thought_text = "".join(
@@ -78,8 +95,10 @@ class ChatSse:
                     # final event：本轮 chunk 结束后，输出一次聚合的完整内容
                     if thought_text:
                         yield cls._sse({"type": "thought_full", "text": thought_text})
+                        thought_text = ""
                     if answer_text:
                         yield cls._sse({"type": "full", "text": answer_text})
+                        answer_text = ""
         except Exception as exc:
             yield cls._sse({"type": "error", "message": str(exc)})
         finally:
