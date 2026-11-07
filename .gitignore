@@ -17,4 +17,5 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+.ruff_cache/
 my_agent_data.db

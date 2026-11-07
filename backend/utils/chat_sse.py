@@ -77,7 +77,7 @@ class ChatSse:
                 else:
                     # final event：本轮 chunk 结束后，输出一次聚合的完整内容
                     if thought_text:
-                        yield cls._sse({"type": "thought", "text": thought_text})
+                        yield cls._sse({"type": "thought_full", "text": thought_text})
                     if answer_text:
                         yield cls._sse({"type": "full", "text": answer_text})
         except Exception as exc:
