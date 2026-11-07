@@ -9,7 +9,14 @@ import dotenv
 
 dotenv.load_dotenv()
 
+import logging
 import os
+
+# 入口统一配置日志；级别可用 LOG_LEVEL 环境变量覆盖（如 DEBUG）
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

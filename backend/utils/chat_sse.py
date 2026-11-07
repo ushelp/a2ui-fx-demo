@@ -7,7 +7,6 @@ from google.adk.agents import RunConfig
 from google.adk.agents._streaming_mode import StreamingMode
 from google.genai import types
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -49,10 +48,17 @@ class ChatSse:
             run_config=run_config,
         )
 
-        streamed = False  # 当前这一轮是否已经输出过增量文本
         try:
             async for event in events:
-                logger.info(event)
+                fc_names = [fc.name for fc in event.get_function_calls()]
+                text_len = sum(
+                    len(p.text) for p in (event.content.parts if event.content else []) if p.text
+                )
+                logger.warning(
+                    "event author=%s partial=%s text_len=%d tool_calls=%s final=%s",
+                    event.author, event.partial, text_len, fc_names or None,
+                    event.is_final_response(),
+                )
 
                 # 工具调用 / 工具结果：与文本帧独立，单独透传给前端
                 for fc in event.get_function_calls():

@@ -8,7 +8,7 @@ from tools.get_current_time import get_current_time
 load_dotenv()
 
 from google.adk.agents import Agent
-from google.adk.runners import Runner
+from google.adk.runners import InMemoryRunner, Runner
 
 from utils.adk_utils import AdkUtils
 
@@ -29,9 +29,9 @@ root_agent = Agent(
 
 # Runner
 # InMemoryRunner 自带内存版 SessionService，适合示例与本地调试
-# runner = InMemoryRunner(agent=root_agent, app_name=APP_NAME)
+runner = InMemoryRunner(agent=root_agent, app_name=APP_NAME)
 
 # SQLite 持久化会话（需要安装 google-adk[db]，已包含 sqlalchemy + aiosqlite）
-db_url = "sqlite+aiosqlite:///./my_agent_data.db"
-session_service = DatabaseSessionService(db_url=db_url)
-runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)
+# db_url = "sqlite+aiosqlite:///./my_agent_data.db"
+# session_service = DatabaseSessionService(db_url=db_url)
+# runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)

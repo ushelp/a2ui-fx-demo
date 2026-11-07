@@ -77,7 +77,7 @@ backend/
 ## 6. 注意事项 / 潜在改进点
 
 - `chat_sse.py` 中 `streamed = False` 是死代码。
-- ~~工具调用不推前端~~ 已通过 `tool_call` / `tool_result` 两种 SSE 帧透传（在文本帧处理之前遍历 `event.get_function_calls()` / `event.get_function_responses()`）。
-- `logger.info(event)` 逐事件打印，生产环境太吵。
+- 已通过 `tool_call` / `tool_result` 两种 SSE 帧透传（在文本帧处理之前遍历 `event.get_function_calls()` / `event.get_function_responses()`）。
+- ~~逐事件 `logger.info(event)` 太吵~~ 已改为 `logger.debug` 摘要式日志（author/partial/text_len/tool_calls/final）。日志级别统一在 `app.py` 入口配置，默认 INFO，可用 `LOG_LEVEL=DEBUG` 环境变量打开；库模块不再各自调用 `logging.basicConfig`。
 - `test/agent_runner.py` 演示了如何在前端外用 `event.get_function_calls()` / `event.is_final_response()` 等 API。
 - 依赖：`google-adk[db]`, `google-genai`, `litellm`, `fastapi`, `a2ui-adk`, `mcp`（见 `backend/pyproject.toml`）。
