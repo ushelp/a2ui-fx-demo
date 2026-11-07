@@ -1,4 +1,7 @@
 import dotenv
+
+from tools.get_current_time import get_current_time
+
 dotenv.load_dotenv()
 
 import datetime
@@ -12,12 +15,11 @@ from google.adk import Runner
 from google.adk.agents import RunConfig
 from google.adk.agents.llm_agent import Agent
 from google.adk.agents.run_config import StreamingMode
-from google.adk.models import LiteLlm
-from google.adk.sessions import InMemorySessionService, DatabaseSessionService, Session
+from google.adk.sessions import DatabaseSessionService, Session
 
 import warnings
 
-from util.adk_util import AdkUtil
+from utils.adk_utils import AdkUtils
 
 # Ignore all warnings
 warnings.filterwarnings("ignore")
@@ -30,14 +32,8 @@ logger = logging.getLogger(__name__)
 from google.genai import types
 
 
-def get_current_time():
-    """Returns the current time."""
-    logger.info("Getting current time for user query")
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
 async def create_agent():
-    model = AdkUtil.get_adk_litellm_model()
+    model = AdkUtils.get_adk_litellm_model()
     root_agent = Agent(
         model=model,
         name='root_agent',
@@ -62,7 +58,7 @@ async def setup_session_and_runner(app_name: str, user_id: str, session_id: str)
     if not session:
         session = await session_service.create_session(app_name=app_name, user_id=user_id, session_id=session_id)
 
-    runner = Runner(agent=root_agent,  # The agent we want to run
+    runner = Runner(agent=root_agent,  # The agents we want to run
                     app_name=app_name,  # Associates runs with our app
                     session_service=session_service,  # Uses our session manager
                     )
@@ -71,7 +67,7 @@ async def setup_session_and_runner(app_name: str, user_id: str, session_id: str)
 
 
 async def call_agent_async(query: str, runner: Runner, user_id: str, session_id: str):
-    """Sends a query to the agent and prints the final response."""
+    """Sends a query to the agents and prints the final response."""
     logger.info(f"\n>>> User Query: {query}")
 
     # Prepare the user's message in ADK format

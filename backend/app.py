@@ -6,16 +6,16 @@
     uv run uvicorn backend.app:app --reload
 """
 import dotenv
+
 dotenv.load_dotenv()
 
 import os
-from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.user import router as user_router
+from api.user_routes import router as user_router
+from api.agent_routes import router as agent_routes
 
 app = FastAPI(title="A2UI FX Demo Backend", version="0.1.0")
 
@@ -27,10 +27,10 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", DEFAULT_ORIGINS).sp
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,        # 前端 Origin 白名单
-    allow_credentials=True,            # 允许携带 Cookie
-    allow_methods=["*"],               # 允许所有 HTTP 方法
-    allow_headers=["*"],               # 允许所有请求头
+    allow_origins=CORS_ORIGINS,  # 前端 Origin 白名单
+    allow_credentials=True,  # 允许携带 Cookie
+    allow_methods=["*"],  # 允许所有 HTTP 方法
+    allow_headers=["*"],  # 允许所有请求头
 )
 
 
@@ -42,6 +42,7 @@ async def health() -> dict:
 
 # 用户模块路由
 app.include_router(user_router, prefix="/api", tags=["users"])
+app.include_router(agent_routes, prefix="/api", tags=["users"])
 
 
 def main() -> None:

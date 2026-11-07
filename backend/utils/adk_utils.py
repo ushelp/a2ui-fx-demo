@@ -5,7 +5,8 @@ from google.adk.models import LiteLlm
 
 dotenv.load_dotenv()
 
-class AdkUtil:
+
+class AdkUtils:
 
     @staticmethod
     def get_adk_litellm_model() -> LiteLlm:
