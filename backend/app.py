@@ -1,9 +1,9 @@
-"""A2UI 餐厅助手 —— FastAPI 启动入口（含 CORS）。
+"""A2UI 汇率助手 —— FastAPI 启动入口（含 CORS）。
 
-启动方式：
-    uv run python backend/app.py
+启动方式（在 backend 目录下执行）：
+    uv run python app.py
 或：
-    uv run uvicorn backend.app:app --reload
+    uv run uvicorn app:app --reload
 """
 import dotenv
 
@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.user_routes import router as user_router
 from api.agent_routes import router as agent_routes
+from api.fx_routes import router as fx_router
 
 app = FastAPI(title="A2UI FX Demo Backend", version="0.1.0")
 
@@ -49,7 +50,8 @@ async def health() -> dict:
 
 # 用户模块路由
 app.include_router(user_router, prefix="/api", tags=["users"])
-app.include_router(agent_routes, prefix="/api", tags=["users"])
+app.include_router(agent_routes, prefix="/api", tags=["agent"])
+app.include_router(fx_router, prefix="/api", tags=["fx-agent"])
 
 
 def main() -> None:
@@ -57,7 +59,8 @@ def main() -> None:
 
     host = os.getenv("HOST", "127.0.0.1")
     port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("backend.app:app", host=host, port=port, reload=True)
+    # reload 需要 import 字符串；本模块的绝对导入（api/agents/...）依赖 backend 作为 cwd
+    uvicorn.run("app:app", host=host, port=port, reload=True)
 
 
 if __name__ == "__main__":
