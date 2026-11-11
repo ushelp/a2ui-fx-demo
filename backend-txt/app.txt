@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.user_routes import router as user_router
 from api.agent_routes import router as agent_routes
-from api.fx_routes import router as fx_router
+
 
 app = FastAPI(title="A2UI FX Demo Backend", version="0.1.0")
 
@@ -51,6 +51,8 @@ async def health() -> dict:
 # 用户模块路由
 app.include_router(user_router, prefix="/api", tags=["users"])
 app.include_router(agent_routes, prefix="/api", tags=["agent"])
+from api.fx_routes import router as fx_router
+# from api.fx_dynamic_agent_routes import router as fx_router
 app.include_router(fx_router, prefix="/api", tags=["fx-agent"])
 
 

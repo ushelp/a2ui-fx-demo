@@ -22,6 +22,18 @@ class ChatSse:
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     @classmethod
+    async def get_or_create_session(cls,
+                                    runner: Runner,
+                                    app_name: str,
+                                    user_id: str,
+                                    session_id: str | None = None):
+        session = await runner.session_service.get_session(app_name=app_name, user_id=user_id, session_id=session_id)
+        if session is None:
+            session = await runner.session_service.create_session(app_name=app_name, user_id=user_id,
+                                                                  session_id=session_id)
+        return session
+
+    @classmethod
     async def stream_chat(cls,
                           message: str,
                           runner: Runner,
@@ -33,10 +45,7 @@ class ChatSse:
                           ) -> AsyncGenerator[str, None]:
 
         # Session
-        session = await runner.session_service.get_session(app_name=app_name, user_id=user_id, session_id=session_id)
-        if session is None:
-            session = await runner.session_service.create_session(app_name=app_name, user_id=user_id,
-                                                                  session_id=session_id)
+        session = await cls.get_or_create_session(runner, app_name, user_id, session_id)
 
         # Message
         new_message = types.Content(role="user", parts=[types.Part(text=message)])

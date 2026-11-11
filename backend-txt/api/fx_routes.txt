@@ -30,9 +30,23 @@ async def chat(payload: FxChatPayload):
     else:
         message = payload.message or ""
 
-    stream_chat = ChatSse.stream_chat(
-        message, fx_agent.runner, fx_agent.APP_NAME, payload.user_id, payload.session_id,
-        a2ui_processor=fx_agent.a2ui_processor,  # 兼容模型把 A2UI 直接写在文本里的情况
-        state_delta=a2ui_policy.action_state_delta(payload.action),  # 本轮 action 的目标 surface
+    # 本轮 processor：先确定 session，再登记到 store（toolset 通过 processors.get /
+    # processors.is_enabled 按 ctx.session.id 取回），流结束后移除。
+    session = await ChatSse.get_or_create_session(
+        fx_agent.runner, fx_agent.APP_NAME, payload.user_id, payload.session_id
     )
-    return StreamingResponse(stream_chat, media_type="text/event-stream")
+    processor = fx_agent.new_processor()
+    fx_agent.processors.set(session.id, processor)
+
+    async def frames():
+        try:
+            async for frame in ChatSse.stream_chat(
+                    message, fx_agent.runner, fx_agent.APP_NAME, payload.user_id, session.id,
+                    a2ui_processor=processor,  # 兼容模型把 A2UI 直接写在文本里的情况
+                    state_delta=a2ui_policy.action_state_delta(payload.action),  # 本轮 action 的目标 surface
+            ):
+                yield frame
+        finally:
+            fx_agent.processors.remove(session.id)
+
+    return StreamingResponse(frames(), media_type="text/event-stream")

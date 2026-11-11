@@ -5,10 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "a2ui-adk>=0.2.0",
-    "fastapi>=0.162.0",
-    "google-adk[db]>=2.13.0",
+    "a2ui-adk>=0.3.0",
+    "fastapi>=0.162.4",
+    "google-adk[db]>=2.14.0",
     "google-genai>=2.34.0",
-    "litellm>=1.108.1",
+    "litellm>=1.109.0",
     "mcp>=2.3.0",
 ]

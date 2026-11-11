@@ -2,8 +2,10 @@
 
 集成要点（参考 a2ui-adk README）：
 - A2uiRequestProcessor：持有 basic catalog（v0.9）与推理格式（Direct JSON），
-  负责生成 A2UI 系统提示词、编译并校验模型输出的 A2UI JSON。本示例是 chat 型
-  agent，不绑定 RendererState，因此可安全地跨请求共享。
+  负责生成 A2UI 系统提示词、编译并校验模型输出的 A2UI JSON。
+- A2uiProcessorStore：按 session 保存该会话的 processor。ADK session state 会被
+  JSON 序列化并在每次加载时复制，processor（及其可能绑定的 RendererState）不能
+  放进 session state，所以放在内存 store 里，由路由在每轮请求开始 set、结束 remove。
 - SendA2uiToClientToolset：向模型暴露 `send_a2ui_json_to_client` 工具，
   模型通过工具调用把 A2UI 发给前端；校验后的消息在工具响应的
   `validated_a2ui_json` 字段中，由 SSE 层拦截转发（见 utils/chat_sse.py）。
@@ -25,7 +27,7 @@ load_dotenv()
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 
-from a2ui.adk import SendA2uiToClientToolset
+from a2ui.adk import A2uiProcessorStore, SendA2uiToClientToolset
 from a2ui.core.basic_catalog import BasicCatalog
 from a2ui.inference_formats.direct_json import DirectJsonFormatFactory
 from a2ui.processor import A2uiRequestProcessor
@@ -39,13 +41,20 @@ APP_NAME = "fx_agent_app"
 # A2UI basic catalog（v0.9）
 _BASIC_CATALOG = BasicCatalog("v0.9")
 
-# A2UI 请求处理器：v0.9 basic catalog + Direct JSON 格式（模型直接输出 JSON 数组）。
-# 无 RendererState 绑定（chat 型 agent），可安全地跨请求共享。
+# A2UI 请求处理器：每个请求一个实例，由路由放入 processors store。
+# processor 不绑定 RendererState（chat 型 agent），但仍按 session 隔离，
+# 便于后续接入状态化能力时不需要再改结构。
 # 不传 examples：让模型自由组合 UI，而不是照着固定示例套模板。
-a2ui_processor = A2uiRequestProcessor(
-    catalogs=[_BASIC_CATALOG],
-    format_factory=DirectJsonFormatFactory(),
-)
+processors = A2uiProcessorStore()
+
+
+def new_processor() -> A2uiRequestProcessor:
+    """创建单个请求/会话使用的 A2UI 处理器。"""
+    return A2uiRequestProcessor(
+        catalogs=[_BASIC_CATALOG],
+        format_factory=DirectJsonFormatFactory(),
+    )
+
 
 _BUSINESS_INSTRUCTION = """你是一个汇率助手，帮助用户查询汇率、查看账户余额并进行货币兑换。
 
@@ -87,7 +96,7 @@ root_agent = Agent(
         convert_currency,
         get_account_balances,
         exchange_in_account,
-        SendA2uiToClientToolset(a2ui_enabled=True, a2ui_processor=a2ui_processor),
+        SendA2uiToClientToolset(a2ui_enabled=processors.is_enabled, a2ui_processor=processors.get),
     ],
 )
 
