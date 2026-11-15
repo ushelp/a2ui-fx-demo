@@ -1,0 +1,74 @@
+/* ==========================================================================
+   组件覆盖层（L2）：只在 .a2ui-brand 作用域内生效。
+
+   这里的规则用于表达 tokens.css 表达不了的东西：
+   组件没有暴露成变量的属性、伪元素、焦点环、特定结构/状态。
+   注意：组件自身样式渲染在元素内部（Light DOM，文档顺序靠后），
+   所以选择器必须带 .a2ui-brand 前缀来获得更高特异性。
+   ========================================================================== */
+
+/* Card：顶部「恒生绿 → 汇丰红」品牌渐变条 */
+.a2ui-brand .a2ui-card {
+  position: relative;
+  background: var(--a2ui-card-background);
+
+}
+
+.a2ui-brand .a2ui-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: var(--a2ui-card-border-radius) var(--a2ui-card-border-radius) 0 0;
+  background: linear-gradient(90deg, var(--brand-hangseng-green), var(--brand-hsbc-red));
+  pointer-events: none;
+}
+
+/* 主按钮：加一点品牌色投影，按下时收紧 */
+.a2ui-brand .a2ui-button.a2ui-button-primary {
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--brand-hangseng-green) 30%, transparent);
+}
+
+.a2ui-brand .a2ui-button.a2ui-button-primary:active {
+  box-shadow: none;
+  transform: translateY(1px);
+}
+
+/* Tabs：激活态下划线默认取 --a2ui-color-primary，这里改成汇丰红 */
+.a2ui-brand .a2ui-tab-button.a2ui-tab-button-active {
+  border-bottom-color: var(--brand-hsbc-red);
+}
+
+/* 统一的键盘焦点环（组件默认没有） */
+.a2ui-brand .a2ui-button:focus-visible,
+.a2ui-brand .a2ui-tab-button:focus-visible,
+.a2ui-brand .a2ui-checkbox:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-hangseng-green) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.a2ui-brand .a2ui-textfield:focus-within,
+.a2ui-brand .a2ui-datetime-input:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-hangseng-green) 18%, transparent);
+}
+
+/* 校验错误文案：汇丰红 + 小字号 */
+.a2ui-brand .a2ui-error-message {
+  color: var(--brand-hsbc-red);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+/* 正文链接：下划线跟随品牌绿 */
+.a2ui-brand .a2ui-text a {
+  color: var(--a2ui-text-a-color);
+  text-decoration-color: color-mix(in srgb, var(--a2ui-text-a-color) 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+.a2ui-brand .a2ui-text a:hover {
+  text-decoration-color: currentColor;
+}

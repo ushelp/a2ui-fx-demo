@@ -556,7 +556,7 @@ export default function App() {
 
   function renderSurfaceCard(surface: SurfaceModel<ReactCatalogComponent>) {
     return (
-      <div key={surface.id} className="surface">
+      <div key={surface.id} className="surface a2ui-brand">
         <div className="surface-head">
           <span className="surface-id">{surface.id}</span>
           <button

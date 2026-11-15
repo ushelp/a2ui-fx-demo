@@ -1,0 +1,113 @@
+/* ==========================================================================
+   主题令牌层（L1）：只定义 CSS 变量，不写组件选择器。
+
+   - 官方默认值定义在 :where(:root)（零特异性），这里的 :root 一定生效，
+     不依赖加载顺序。
+   - 换品牌只需要改文件顶部的原始色板，下面的映射保持不变。
+   - 深色模式通过 light-dark() 自动跟随系统 color-scheme。
+   ========================================================================== */
+
+:root {
+  /* ---------- 原始品牌色板：恒生绿 + 汇丰红 ---------- */
+  --brand-hangseng-green: light-dark(#00843d, #34b071);
+  --brand-hangseng-green-hover: light-dark(#006b31, #4cc185);
+  --brand-hangseng-green-soft: light-dark(#e7f3ec, #16301f);
+
+  --brand-hsbc-red: light-dark(#db0011, #ff5a66);
+  --brand-hsbc-red-hover: light-dark(#b0000e, #ff7b84);
+  --brand-hsbc-red-soft: light-dark(#fdecee, #3a1519);
+
+  /* 中性色 */
+  --brand-ink: light-dark(#1f2329, #e8eaed);
+  --brand-ink-muted: light-dark(#5a6572, #9aa6b2);
+  --brand-line: light-dark(#dce3ea, #35404a);
+  --brand-bg: light-dark(#f4f6f8, #14181b);
+  --brand-surface: light-dark(#ffffff, #1c2226);
+
+  /* ---------- A2UI 颜色令牌 ---------- */
+  --a2ui-color-primary: var(--brand-hangseng-green);
+  --a2ui-color-primary-hover: var(--brand-hangseng-green-hover);
+  --a2ui-color-on-primary: #ffffff;
+
+  --a2ui-color-secondary: light-dark(#eef2f0, #26302b);
+  --a2ui-color-secondary-hover: light-dark(#e2eae5, #33403a);
+  --a2ui-color-on-secondary: var(--brand-ink);
+
+  --a2ui-color-background: var(--brand-bg);
+  --a2ui-color-on-background: var(--brand-ink);
+  --a2ui-color-surface: var(--brand-surface);
+  --a2ui-color-on-surface: var(--brand-ink);
+
+  --a2ui-color-input: light-dark(#ffffff, #222a2f);
+  --a2ui-color-on-input: var(--brand-ink);
+
+  --a2ui-color-border: var(--brand-line);
+  --a2ui-border-width: 1px;
+  --a2ui-border: var(--a2ui-border-width) solid var(--a2ui-color-border);
+  --a2ui-border-radius: 8px;
+
+  /* ---------- 字体与间距 ---------- */
+  --a2ui-font-family-title: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  --a2ui-font-size: 14px;
+  --a2ui-grid-base: 8px;
+  --a2ui-line-height-body: 1.6;
+
+  /* ---------- Text ---------- */
+  --a2ui-text-color-text: var(--a2ui-color-on-surface);
+  --a2ui-text-caption-color: var(--brand-ink-muted);
+  --a2ui-text-a-color: var(--brand-hangseng-green);
+  --a2ui-text-a-font-weight: 500;
+
+  /* ---------- Card ---------- */
+  --a2ui-card-background: var(--a2ui-color-surface);
+  --a2ui-card-border: var(--a2ui-border);
+  --a2ui-card-border-radius: 12px;
+  --a2ui-card-box-shadow: none;
+  --a2ui-card-padding: 16px;
+  --a2ui-card-margin: 0;
+
+  /* ---------- Button ---------- */
+  --a2ui-button-background: var(--a2ui-color-surface);
+  --a2ui-button-border: var(--a2ui-border);
+  --a2ui-button-border-radius: 6px;
+  --a2ui-button-font-weight: 500;
+  --a2ui-button-padding: 8px 16px;
+  --a2ui-button-margin: 0;
+  --a2ui-button-box-shadow: none;
+
+  /* ---------- TextField / DateTimeInput ---------- */
+  --a2ui-textfield-border: var(--a2ui-border);
+  --a2ui-textfield-border-radius: 6px;
+  --a2ui-textfield-padding: 8px 12px;
+  --a2ui-textfield-width: 100%;
+  --a2ui-textfield-color-border-focus: var(--brand-hangseng-green);
+  --a2ui-textfield-color-error: var(--brand-hsbc-red);
+  --a2ui-textfield-label-font-weight: 500;
+
+  --a2ui-datetimeinput-border: var(--a2ui-border);
+  --a2ui-datetimeinput-border-radius: 6px;
+  --a2ui-datetimeinput-color-error: var(--brand-hsbc-red);
+
+  /* ---------- Tabs：绿色主色 + 汇丰红激活项 ---------- */
+  --a2ui-tabs-border: 1px solid var(--a2ui-color-border);
+  --a2ui-tabs-header-background: transparent;
+  --a2ui-tabs-header-background-active: transparent;
+  --a2ui-tabs-header-color: var(--a2ui-text-caption-color);
+  --a2ui-tabs-header-color-active: var(--brand-hsbc-red);
+  --a2ui-tabs-content-padding: 12px 0;
+
+  /* ---------- 其它组件 ---------- */
+  --a2ui-checkbox-border-radius: 4px;
+  --a2ui-checkbox-color-error: var(--brand-hsbc-red);
+  --a2ui-choicepicker-chip-border-radius: 999px;
+  --a2ui-choicepicker-color-error: var(--brand-hsbc-red);
+  --a2ui-slider-thumb-color: var(--brand-hangseng-green);
+  --a2ui-slider-track-color: var(--brand-hangseng-green-soft);
+  --a2ui-slider-color-error: var(--brand-hsbc-red);
+  --a2ui-divider-spacing: 12px;
+  --a2ui-list-gap: 8px;
+  --a2ui-icon-size: 20px;
+  --a2ui-image-border-radius: 8px;
+  --a2ui-modal-border-radius: 12px;
+  --a2ui-modal-background: var(--a2ui-color-surface);
+}
