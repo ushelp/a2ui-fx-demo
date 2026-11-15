@@ -4,6 +4,7 @@ import logging
 
 from a2ui.adk import SendA2uiToClientToolset, A2uiProcessorStore, A2uiInstruction, a2ui_rpc_callback
 from a2ui.core.basic_catalog import BasicCatalog
+from a2ui.core.schema import ProtocolVersion
 from a2ui.inference_formats import DirectJsonFormatFactory
 from a2ui.processor import A2uiRequestProcessor
 from fastapi import APIRouter
@@ -31,15 +32,21 @@ class FxChatPayload(BaseModel):
 
 @router.post("/fx-agent", summary="Chat with the A2UI FX assistant")
 async def chat(payload: FxChatPayload):
+    # App name
+    APP_NAME = "fx_agent_app"
+    session_id = payload.session_id
+    user_id = payload.user_id
+    message = payload.message
+    action = payload.action
+
     # action 回传：包装成 A2UI client message JSON，作为本轮 user message 发给 agent
     if payload.action is not None:
-        message = json.dumps({"version": "v0.9", "action": payload.action}, ensure_ascii=False)
+        message = json.dumps({"version": ProtocolVersion.V1_0, "action": action}, ensure_ascii=False)
         logger.info("A2UI action: %s", message)
     else:
         message = payload.message or ""
 
-    # App name
-    APP_NAME = "fx_agent_app"
+
 
 
     _BUSINESS_INSTRUCTION = """你是一个汇率助手，帮助用户查询汇率、查看账户余额并进行货币兑换。
@@ -66,41 +73,37 @@ async def chat(payload: FxChatPayload):
        不要在回复文本中直接输出 A2UI JSON 或 a2ui-json 标签。
     6. 其它闲聊问题直接用简短文字回答，不要发送 UI。
     """
+    _BASIC_CATALOG = BasicCatalog(ProtocolVersion.V1_0)
 
-    processors = A2uiProcessorStore()
-
-    def active_catalogs(ctx):
-        processor = processors.get(ctx)
-        return processor.active_catalogs if processor else None
+    """创建单个请求/会话使用的 A2UI 处理器。"""
+    a2ui_processor = A2uiRequestProcessor(
+        catalogs=[_BASIC_CATALOG],
+        format_factory=DirectJsonFormatFactory(),
+    )
 
     # Agent
-    logger.info(f"processors.is_enabled: {processors.is_enabled}")
     root_agent = Agent(
         model=AdkUtils.get_adk_litellm_model(),
         name="fx_agent",
         description="An A2UI exchange-rate assistant.",
-        # 业务 instruction + 通用 surface 规则；A2UI 格式提示词由 toolset 自动追加。
-        # instruction=a2ui_policy.compose_instruction(_BUSINESS_INSTRUCTION),
         instruction=A2uiInstruction(
             a2ui_policy.compose_instruction(_BUSINESS_INSTRUCTION),
-            a2ui_processor=processors.get,
-            a2ui_enabled=processors.is_enabled,
+            a2ui_processor=a2ui_processor
         ),
         # 记录 surface 清单，并在每次请求前注入“已存在的界面 / action 目标”
-        before_model_callback=a2ui_policy.inject_surface_context,
-        after_tool_callback=a2ui_policy.record_surfaces,
+        # before_model_callback=a2ui_policy.inject_surface_context,
+        # after_tool_callback=a2ui_policy.record_surfaces,
         tools=[
             get_exchange_rate,
             convert_currency,
             get_account_balances,
             exchange_in_account,
-            # SendA2uiToClientToolset(a2ui_enabled=True, a2ui_processor=a2ui_processor),
             SendA2uiToClientToolset(
-                a2ui_enabled=processors.is_enabled,
-                a2ui_processor=processors.get,
-            )
+                a2ui_enabled=True,
+                a2ui_processor=a2ui_processor,
+            ),
         ],
-        before_agent_callback=a2ui_rpc_callback(catalogs=active_catalogs),
+        before_agent_callback=a2ui_rpc_callback(catalogs=a2ui_processor.active_catalogs),
     )
 
     # Runner：与 assistant_agent 共用同一个 SQLite 数据库（app_name 不同，互不影响）
@@ -111,17 +114,14 @@ async def chat(payload: FxChatPayload):
     if session is None:
         session = await session_service.create_session(app_name=APP_NAME, user_id=payload.user_id, session_id=payload.session_id)
 
-    _BASIC_CATALOG = BasicCatalog("v0.9")
-    processor = A2uiRequestProcessor(
-        catalogs=[_BASIC_CATALOG],
-        format_factory=DirectJsonFormatFactory(),
-    )
-    processors.set(session.id, processor)
-
 
     stream_chat = ChatSse.stream_chat(
-        message, runner, APP_NAME, payload.user_id, payload.session_id,
-        a2ui_processor=processor,  # 兼容模型把 A2UI 直接写在文本里的情况
-        state_delta=a2ui_policy.action_state_delta(payload.action),  # 本轮 action 的目标 surface
+        message,
+        runner,
+        APP_NAME,
+        user_id,
+        session_id,
+        a2ui_processor=a2ui_processor,  # 兼容模型把 A2UI 直接写在文本里的情况
+        state_delta=a2ui_policy.action_state_delta(action),  # 本轮 action 的目标 surface
     )
     return StreamingResponse(stream_chat, media_type="text/event-stream")

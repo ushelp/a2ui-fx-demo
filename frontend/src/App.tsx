@@ -8,9 +8,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import {A2uiSurface, ReactCatalogComponent} from '@a2ui/react/v0_9';
-import {MessageProcessor, SurfaceModel} from '@a2ui/web_core/v0_9';
-import {basicCatalog} from '@a2ui/web_core/v0_9/basic_catalog';
+import {A2uiSurface, ReactCatalogComponent} from '@a2ui/react';
+import {MessageProcessor, SurfaceModel} from '@a2ui/web_core';
+import {basicCatalog} from '@a2ui/web_core/catalogs/basic/v1';
 import {streamFxChat} from './api';
 import './App.css';
 
@@ -22,6 +22,11 @@ const STORAGE_SIDE_WIDTH = 'a2ui-fx-demo.side-width';
 const STORAGE_DEBUG_WIDTH = 'a2ui-fx-demo.debug-width';
 const STORAGE_POLICY = 'a2ui-fx-demo.display-policy';
 const STORAGE_SURFACE_LAYOUT = 'a2ui-fx-demo.surface-layout';
+// 每个 session 的 A2UI 消息日志：刷新后回放，重建 renderer 状态。
+// A2UI 的 surface 状态只在客户端，后端 session 不存 UI 内容，
+// 所以由客户端持久化消息流并回放是标准做法。
+// key 里带上 protocol version，避免 v0.9 时代的旧日志被 v1.0 processor 回放导致校验失败。
+const A2UI_LOG_PREFIX = `a2ui-fx-demo.a2ui-log.${basicCatalog.protocolVersion}.`;
 
 type DisplayPolicy = 'single' | 'multi';
 type SurfaceLayout = 'stack' | 'grid' | 'tabs';
@@ -50,6 +55,49 @@ function saveSetting(key: string, value: string) {
     localStorage.setItem(key, value);
   } catch {
     // localStorage 不可用（隐私模式等）时忽略
+  }
+}
+
+function a2uiLogKey(userId: string, sessionId: string): string {
+  return A2UI_LOG_PREFIX + userId + '.' + sessionId;
+}
+
+function loadA2uiLog(userId: string, sessionId: string): unknown[] {
+  try {
+    const raw = localStorage.getItem(a2uiLogKey(userId, sessionId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// 追加消息到日志；遇到 deleteSurface 时把该 surface 之前的消息一并移除，
+// 这样回放时不会出现"先建后删"的多余状态。
+function appendA2uiLog(userId: string, sessionId: string, messages: unknown[]) {
+  let log = loadA2uiLog(userId, sessionId);
+  for (const msg of messages) {
+    const m = msg as Record<string, any>;
+    if (m.deleteSurface?.surfaceId) {
+      const id = m.deleteSurface.surfaceId;
+      log = log.filter((x: any) => surfaceIdOf(x) !== id);
+      continue;
+    }
+    log.push(msg);
+  }
+  try {
+    localStorage.setItem(a2uiLogKey(userId, sessionId), JSON.stringify(log));
+  } catch {
+    // ignore
+  }
+}
+
+function clearA2uiLog(userId: string, sessionId: string) {
+  try {
+    localStorage.removeItem(a2uiLogKey(userId, sessionId));
+  } catch {
+    // ignore
   }
 }
 
@@ -200,6 +248,57 @@ export default function App() {
     };
   }, [processor]);
 
+  // 切会话 / 页面首次加载：回放该 session 已持久化的 A2UI 消息，
+  // 重建刷新前的 surface（组件 + 数据）。A2UI 状态是纯客户端的，
+  // 后端只记 surface id，所以由客户端存消息流并回放。
+  useEffect(() => {
+    Array.from(processor.model.surfacesMap.keys()).forEach(id =>
+      processor.model.deleteSurface(id),
+    );
+    const log = loadA2uiLog(userId, sessionId) as Array<Record<string, any>>;
+    if (log.length) {
+      // 只回放版本匹配的消息
+      const versioned = log.filter(
+        m => !m.version || m.version === basicCatalog.protocolVersion,
+      );
+      // 先扫描出有 createSurface 的 surfaceId；没有 createSurface 的“孤儿更新”
+      // （例如旧 session 里 agent 误以为 surface 存在而只发 updateDataModel）
+      // 在回放时直接跳过，避免生成没有组件的空 surface。
+      const createdIds = new Set<string>();
+      for (const m of versioned) {
+        const id = m.createSurface?.surfaceId as string | undefined;
+        if (id) createdIds.add(id);
+      }
+      const known = new Set<string>();
+      const prepared = versioned.flatMap(msg => {
+        const createId = msg.createSurface?.surfaceId as string | undefined;
+        if (createId) {
+          if (known.has(createId)) processor.model.deleteSurface(createId);
+          known.add(createId);
+          return [msg];
+        }
+        const updateId = (msg.updateComponents?.surfaceId ??
+          msg.updateDataModel?.surfaceId) as string | undefined;
+        if (updateId) {
+          // 回放时：只处理真正被 createSurface 建过的 surface
+          if (!createdIds.has(updateId)) return [];
+          known.add(updateId);
+          return [msg];
+        }
+        const deleteId = msg.deleteSurface?.surfaceId as string | undefined;
+        if (deleteId) {
+          if (!known.has(deleteId)) return [];
+          known.delete(deleteId);
+        }
+        return [msg];
+      });
+      processor.processMessages(prepared);
+      const ids = versioned.map(surfaceIdOf).filter(Boolean) as string[];
+      if (ids.length) setActiveSurfaceId(ids[ids.length - 1]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [processor, userId, sessionId]);
+
   // 主区域变窄（窗口缩放 / 打开调试抽屉）时把已保存的宽度拉回可用范围，
   // 避免拖出来的宽度在小窗口里把布局挤出屏幕。
   useEffect(() => {
@@ -278,6 +377,7 @@ export default function App() {
     setDebugFrames([]);
     setDismissedIds([]);
     setActiveSurfaceId(null);
+    clearA2uiLog(userId, sessionId);
     Array.from(processor.model.surfacesMap.keys()).forEach(id =>
       processor.model.deleteSurface(id),
     );
@@ -353,6 +453,9 @@ export default function App() {
                   : touched[touched.length - 1];
               if (nextId) setActiveSurfaceId(nextId);
 
+              // 持久化到 localStorage，供刷新后回放重建 surface
+              appendA2uiLog(userId, sessionId, messages);
+
               // 后端 session 会保存在服务端，但页面刷新后前端丢失了 surface。
               // 若本轮只有 updateComponents / updateDataModel，先补一条 createSurface，
               // 避免 A2uiIntegrityError: Surface not found；对本地已不存在的
@@ -376,7 +479,7 @@ export default function App() {
                     known.add(updateId);
                     return [
                       {
-                        version: 'v0.9',
+                        version: basicCatalog.protocolVersion,
                         createSurface: {surfaceId: updateId, catalogId: basicCatalog.id},
                       },
                       msg,

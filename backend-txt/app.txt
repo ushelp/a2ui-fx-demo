@@ -5,6 +5,8 @@
 或：
     uv run uvicorn app:app --reload
 """
+import multiprocessing
+
 import dotenv
 
 dotenv.load_dotenv()
@@ -18,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.user_routes import router as user_router
@@ -42,6 +44,20 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def log_worker_middleware(request: Request, call_next):
+    """打印处理当前请求的 worker 进程信息，便于多 worker 调试。"""
+    worker_name = multiprocessing.current_process().name
+    logging.info(
+        "worker=%s pid=%s  <-  %s %s",
+        worker_name,
+        os.getpid(),
+        request.method,
+        request.url.path,
+    )
+    response = await call_next(request)
+    return response
+
 @app.get("/api/health")
 async def health() -> dict:
     """健康检查，同时可用于验证 CORS 是否生效。"""
@@ -51,8 +67,8 @@ async def health() -> dict:
 # 用户模块路由
 app.include_router(user_router, prefix="/api", tags=["users"])
 app.include_router(agent_routes, prefix="/api", tags=["agent"])
-from api.fx_routes import router as fx_router
-# from api.fx_dynamic_agent_routes import router as fx_router
+# from api.fx_routes import router as fx_router
+from api.fx_dynamic_agent_routes import router as fx_router
 app.include_router(fx_router, prefix="/api", tags=["fx-agent"])
 
 

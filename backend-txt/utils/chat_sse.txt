@@ -39,13 +39,16 @@ class ChatSse:
                           runner: Runner,
                           app_name: str,
                           user_id: str,
-                          session_id: str | None = None,
+                          session_id: str,
                           a2ui_processor: A2uiRequestProcessor | None = None,
                           state_delta: dict | None = None,
                           ) -> AsyncGenerator[str, None]:
 
         # Session
         session = await cls.get_or_create_session(runner, app_name, user_id, session_id)
+
+        logger.debug("session ID: %s", session_id)
+        logger.debug("session created: %s", session.id)
 
         # Message
         new_message = types.Content(role="user", parts=[types.Part(text=message)])
@@ -60,7 +63,7 @@ class ChatSse:
         # Run
         events = runner.run_async(
             user_id=user_id,
-            session_id=session.id,
+            session_id=session_id,
             new_message=new_message,
             run_config=run_config,
             state_delta=state_delta,

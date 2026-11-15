@@ -17,6 +17,7 @@
 组件里自由组合生成，避免示例变成固定模板限制后续功能扩展。格式正确性由
 catalog schema 与 `A2uiRequestProcessor` 的校验保证。
 """
+from a2ui.core.schema import ProtocolVersion
 from dotenv import load_dotenv
 from google.adk.sessions import DatabaseSessionService
 
@@ -27,7 +28,7 @@ load_dotenv()
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 
-from a2ui.adk import A2uiProcessorStore, SendA2uiToClientToolset
+from a2ui.adk import A2uiProcessorStore, SendA2uiToClientToolset, A2uiInstruction, a2ui_rpc_callback
 from a2ui.core.basic_catalog import BasicCatalog
 from a2ui.inference_formats.direct_json import DirectJsonFormatFactory
 from a2ui.processor import A2uiRequestProcessor
@@ -37,24 +38,6 @@ from agents import a2ui_policy
 
 # App name
 APP_NAME = "fx_agent_app"
-
-# A2UI basic catalog（v0.9）
-_BASIC_CATALOG = BasicCatalog("v0.9")
-
-# A2UI 请求处理器：每个请求一个实例，由路由放入 processors store。
-# processor 不绑定 RendererState（chat 型 agent），但仍按 session 隔离，
-# 便于后续接入状态化能力时不需要再改结构。
-# 不传 examples：让模型自由组合 UI，而不是照着固定示例套模板。
-processors = A2uiProcessorStore()
-
-
-def new_processor() -> A2uiRequestProcessor:
-    """创建单个请求/会话使用的 A2UI 处理器。"""
-    return A2uiRequestProcessor(
-        catalogs=[_BASIC_CATALOG],
-        format_factory=DirectJsonFormatFactory(),
-    )
-
 
 _BUSINESS_INSTRUCTION = """你是一个汇率助手，帮助用户查询汇率、查看账户余额并进行货币兑换。
 
@@ -80,24 +63,47 @@ _BUSINESS_INSTRUCTION = """你是一个汇率助手，帮助用户查询汇率�
    不要在回复文本中直接输出 A2UI JSON 或 a2ui-json 标签。
 6. 其它闲聊问题直接用简短文字回答，不要发送 UI。
 """
+processors = A2uiProcessorStore()
+
+_BASIC_CATALOG = BasicCatalog(ProtocolVersion.V1_0)
+
+def new_processor() -> A2uiRequestProcessor:
+    """创建单个请求/会话使用的 A2UI 处理器。"""
+    return A2uiRequestProcessor(
+        catalogs=[_BASIC_CATALOG],
+        format_factory=DirectJsonFormatFactory(),
+    )
+
+
+def active_catalogs(ctx):
+  processor = processors.get(ctx)
+  return processor.active_catalogs if processor else None
+
 
 # Agent
 root_agent = Agent(
     model=AdkUtils.get_adk_litellm_model(),
     name="fx_agent",
     description="An A2UI exchange-rate assistant.",
-    # 业务 instruction + 通用 surface 规则；A2UI 格式提示词由 toolset 自动追加。
-    instruction=a2ui_policy.compose_instruction(_BUSINESS_INSTRUCTION),
+    instruction=A2uiInstruction(
+        a2ui_policy.compose_instruction(_BUSINESS_INSTRUCTION),
+        a2ui_processor=processors.get,
+        a2ui_enabled=processors.is_enabled,
+    ),
     # 记录 surface 清单，并在每次请求前注入“已存在的界面 / action 目标”
-    before_model_callback=a2ui_policy.inject_surface_context,
-    after_tool_callback=a2ui_policy.record_surfaces,
+    # before_model_callback=a2ui_policy.inject_surface_context,
+    # after_tool_callback=a2ui_policy.record_surfaces,
     tools=[
         get_exchange_rate,
         convert_currency,
         get_account_balances,
         exchange_in_account,
-        SendA2uiToClientToolset(a2ui_enabled=processors.is_enabled, a2ui_processor=processors.get),
+        SendA2uiToClientToolset(
+            a2ui_enabled=processors.is_enabled,
+            a2ui_processor=processors.get,
+        ),
     ],
+    before_agent_callback=a2ui_rpc_callback(catalogs=active_catalogs),
 )
 
 # Runner：与 assistant_agent 共用同一个 SQLite 数据库（app_name 不同，互不影响）

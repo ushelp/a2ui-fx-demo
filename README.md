@@ -50,6 +50,8 @@ cd backend
 uv run python app.py
 # 或
 uv run uvicorn app:app --reload
+# 或
+uv run uvicorn app:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 健康检查：<http://127.0.0.1:8000/api/health>

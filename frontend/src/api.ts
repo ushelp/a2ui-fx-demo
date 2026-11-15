@@ -1,4 +1,4 @@
-import type {A2uiMessage} from '@a2ui/web_core/v0_9';
+import type {AgentToRendererMessage} from '@a2ui/web_core/v1_0';
 
 /** SSE 帧，与后端 utils/chat_sse.py 输出的帧类型一一对应。 */
 export interface FxFrame {
@@ -14,7 +14,7 @@ export interface FxFrame {
     | 'done';
   text?: string;
   message?: string;
-  messages?: A2uiMessage[];
+  messages?: AgentToRendererMessage[];
   name?: string;
   args?: Record<string, unknown>;
 }
